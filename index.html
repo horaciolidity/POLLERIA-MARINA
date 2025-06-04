@@ -29,7 +29,7 @@
 </section>
 
 
-        <section id="product-search">
+          <section id="product-search">
             <input type="text" id="search-code" placeholder="Buscar por Código">
             <button onclick="searchProduct()">Buscar</button>
         </section>
@@ -42,21 +42,24 @@
             <button onclick="scanProduct()">Añadir al Carrito</button>
             <ul id="cart"></ul>
             <p>Total: $<span id="total-price">0.00</span></p>
-
-
- </div>
+</div>
 <div>
 
   <button onclick="finalizeSale('efectivo')">Pago en Efectivo</button>
   <button onclick="finalizeSale('transferencia')">Pago Transferido</button>
 </div>
+
+
+
             
         </section>
+
+
+    
      <div style="text-align: center;">
             <button class="action-button" onclick="consultarTotalVendido()" style="padding: 5px 10px; font-size: 0.9em; border-radius: 15px; background-color: #007bff; color: white; margin: 5px; border: none; cursor: pointer;">Consultar Total Vendido</button>
             <button class="action-button" onclick="limpiarTotalVendido()" style="padding: 5px 10px; font-size: 0.9em; border-radius: 15px; background-color: #dc3545; color: white; margin: 5px; border: none; cursor: pointer;">Limpiar Total Vendido</button>
         </div>
-
 <div id="ventas-modal" class="modal" style="display: none;">
     <div class="modal-content">
         <span class="close">&times;</span>
