@@ -60,9 +60,14 @@ function addProduct() {
         saveProducts(products);
         displayProducts();
         updateTotalPrice();
+        if (typeof enviarCarritoAlCliente === 'function') {
+            enviarCarritoAlCliente();
+        }
+
         clearForm();
     }
 }
+
 
 
 function clearForm() {
@@ -123,6 +128,9 @@ function updateProduct(code) {
             product.quantity = quantityNumber; // Actualiza la cantidad del producto
             saveProducts(products); // Guarda el inventario actualizado
             displayProducts(); // Actualiza la vista de productos
+            updateTotalPrice();
+            enviarCarritoAlCliente();
+
             alert(`Cantidad de ${product.name} actualizada a ${quantityNumber}.`);
         } else {
             alert('Por favor, ingrese una cantidad válida.');
@@ -217,7 +225,15 @@ function addToCart(product) {
     cartList.appendChild(li);
   }
 
+  if (typeof notificarCliente === 'function') {
+    notificarCliente(product.name, product.price, quantity);
+  }
+
   updateTotalPrice();
+
+  if (typeof enviarCarritoAlCliente === 'function') {
+    enviarCarritoAlCliente();
+  }
 }
 
 function editCartItemPrice(code) {
@@ -247,21 +263,33 @@ function editCartItemPrice(code) {
 
 
 function removeQuantity(code) {
-    const cartList = document.getElementById('cart');
-    const existingItem = Array.from(cartList.children).find(item => item.dataset.code === code);
+  const cartList = document.getElementById('cart');
+  const existingItem = Array.from(cartList.children).find(item => item.dataset.code === code);
+  const products = getProducts();
+  const product = products.find(p => p.code === code);
 
-    if (existingItem) {
-        const quantitySpan = existingItem.querySelector('.quantity');
-        const currentQuantity = parseInt(quantitySpan.textContent);
+  if (existingItem && product) {
+    const quantitySpan = existingItem.querySelector('.quantity');
+    const priceSpan = existingItem.querySelector('.price');
 
-        if (currentQuantity > 1) {
-            const newQuantity = currentQuantity - 1; // Decrementa la cantidad
-            quantitySpan.textContent = newQuantity; // Actualiza la cantidad en la interfaz
-        } else {
-            existingItem.remove(); // Si la cantidad es 1, elimina el producto del carrito
-        }
-        updateTotalPrice(); // Actualiza el total
+    const currentQuantity = parseFloat(quantitySpan.textContent);
+
+    if (currentQuantity > 1) {
+      const newQuantity = currentQuantity - 1;
+      quantitySpan.textContent = newQuantity.toFixed(3);
+
+      const newPrice = newQuantity * product.price;
+      priceSpan.textContent = newPrice.toFixed(2);
+    } else {
+      existingItem.remove();
     }
+
+    updateTotalPrice();
+
+    if (typeof enviarCarritoAlCliente === 'function') {
+      enviarCarritoAlCliente();
+    }
+  }
 }
 
 function addQuantity(code) {
@@ -283,6 +311,10 @@ function addQuantity(code) {
 
     updateTotalPrice();
   }
+    if (typeof enviarCarritoAlCliente === 'function') {
+  enviarCarritoAlCliente();
+}
+
 }
 
 function updateTotalPrice() {
@@ -443,6 +475,9 @@ function limpiarTotalVendido() {
     document.getElementById("opening-cash").disabled = false;
 
     alert('Turno reiniciado. Todo el historial fue limpiado.');
+     if (typeof resetCliente === 'function') {
+        resetCliente();
+    }
 }
 
 
@@ -536,56 +571,65 @@ function saveSale(cart, paymentMethod) {
 }
 
 function finalizeSale(method) {
-    const cartItems = document.querySelectorAll('#cart li');
-    if (cartItems.length === 0) {
-        alert('El carrito está vacío');
-        return;
+  const cartItems = document.querySelectorAll('#cart li');
+  if (cartItems.length === 0) {
+    alert('El carrito está vacío');
+    return;
+  }
+
+  const cart = [];
+  const products = getProducts();
+  let hasStockIssue = false;
+
+  cartItems.forEach(item => {
+    const code = item.dataset.code;
+    const quantity = parseFloat(item.querySelector('.quantity').textContent);
+    const totalPrice = parseFloat(item.querySelector('.price').textContent);
+    const product = products.find(p => p.code === code);
+
+    if (product && product.quantity >= quantity) {
+      product.quantity -= quantity;
+      product.sold = (product.sold || 0) + quantity;
+    } else {
+      alert(`No hay suficiente stock de ${product.name}`);
+      hasStockIssue = true;
     }
 
-    const cart = [];
-    const products = getProducts();
-    let hasStockIssue = false;
+    const unitPrice = totalPrice / quantity;
 
-    cartItems.forEach(item => {
-        const code = item.dataset.code;
-        const quantity = parseFloat(item.querySelector('.quantity').textContent);
-        const totalPrice = parseFloat(item.querySelector('.price').textContent);
-        const product = products.find(p => p.code === code);
-
-        if (product && product.quantity >= quantity) {
-            product.quantity -= quantity;
-            product.sold = (product.sold || 0) + quantity;
-        } else {
-            alert(`No hay suficiente stock de ${product.name}`);
-            hasStockIssue = true;
-        }
-
-        // Calcular precio unitario real
-        const unitPrice = totalPrice / quantity;
-
-        cart.push({
-            code,
-            name: product.name,
-            price: unitPrice,
-            quantity,
-            cost: product.cost || 0
-        });
+    cart.push({
+      code,
+      name: product.name,
+      price: unitPrice,
+      quantity,
+      cost: product.cost || 0
     });
+  });
 
-    if (hasStockIssue) return;
+  if (hasStockIssue) return;
 
-    const novedades = prompt("¿Desea agregar alguna novedad sobre esta venta? (opcional)") || "";
-    const sales = JSON.parse(localStorage.getItem('sales')) || [];
-    const timestamp = new Date().toLocaleString();
-    sales.push({ cart, paymentMethod: method, timestamp, novedades });
-    localStorage.setItem('sales', JSON.stringify(sales));
+  const novedades = prompt("¿Desea agregar alguna novedad sobre esta venta? (opcional)") || "";
+  const sales = JSON.parse(localStorage.getItem('sales')) || [];
+  const timestamp = new Date().toLocaleString();
+  sales.push({ cart, paymentMethod: method, timestamp, novedades });
+  localStorage.setItem('sales', JSON.stringify(sales));
 
-    saveProducts(products);
-    document.getElementById('cart').innerHTML = '';
-    document.getElementById('total-price').textContent = '0.00';
-    alert('Venta registrada con pago: ' + method);
-    displayProducts();
-    updateTotalPrice();
+  // ✅ ACTUALIZAR totalVendido
+  const totalVenta = cart.reduce((acc, p) => acc + (p.price * p.quantity), 0);
+  let totalVendido = parseFloat(localStorage.getItem('totalVendido')) || 0;
+  totalVendido += totalVenta;
+  localStorage.setItem('totalVendido', totalVendido.toFixed(2));
+
+  saveProducts(products);
+  document.getElementById('cart').innerHTML = '';
+  document.getElementById('total-price').textContent = '0.00';
+  alert('Venta registrada con pago: ' + method);
+  displayProducts();
+  updateTotalPrice();
+
+    
+const canal = new BroadcastChannel('pos_channel');
+canal.postMessage({ tipo: 'despedida' });
 }
 
 function showSalesSummary() {
@@ -660,22 +704,6 @@ function downloadSummary() {
     document.body.removeChild(link);
 }
 
-function resetDay() {
-    localStorage.removeItem('sales');
-    localStorage.removeItem('openingCash');
-    localStorage.removeItem('openingCashSet');
-    localStorage.removeItem('totalVendido');
-
-    const products = getProducts();
-    products.forEach(p => p.sold = 0);
-    saveProducts(products);
-
-    document.getElementById("sales-summary").value = "";
-    document.getElementById("opening-cash").disabled = false;
-
-    displayProducts();
-    alert("Caja, ventas y arqueo limpiados exitosamente.");
-}
 
 
 function getVentas() {
@@ -693,4 +721,27 @@ function checkStock(product) {
     if (product.quantity < 5) { // Por ejemplo, menos de 5 unidades
         alert(`Quedan solo ${product.quantity} unidades de ${product.name}.`);
     }
+}
+
+function resetDay() {
+    localStorage.removeItem('sales');
+    localStorage.removeItem('openingCash');
+    localStorage.removeItem('openingCashSet');
+    localStorage.removeItem('totalVendido');
+
+    const products = getProducts();
+    products.forEach(p => p.sold = 0);
+    saveProducts(products);
+
+    document.getElementById("sales-summary").value = "";
+    document.getElementById("opening-cash").disabled = false;
+
+    displayProducts();
+
+    // 👉 Agregado
+    if (typeof resetCliente === 'function') {
+        resetCliente();
+    }
+
+    alert("Caja, ventas y arqueo limpiados exitosamente.");
 }
